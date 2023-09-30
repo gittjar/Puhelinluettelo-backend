@@ -81,7 +81,7 @@ app.get('/', (req, res) => {
       });
     }
   
-    if (!body.phonenumber) {
+    if (!body.puhelin) {
       return response.status(400).json({
         error: 'Phonenumber is missing',
       });
@@ -96,7 +96,7 @@ app.get('/', (req, res) => {
   
     const person = {
       name: body.name,
-      phonenumber: body.phonenumber,
+      puhelin: body.puhelin,
       id: generateId(),
     };
 
