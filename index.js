@@ -55,6 +55,24 @@ app.get('/', (req, res) => {
       }
   })
 
+  // Update a person by ID
+app.put('/api/persons/:id', (request, response) => {
+  const id = Number(request.params.id);
+  const updatedPerson = request.body;
+
+  // Find the person to update by ID
+  const personToUpdate = persons.find((person) => person.id === id);
+
+  if (!personToUpdate) {
+    return response.status(404).json({ error: 'Person not found' });
+  }
+
+  // Update the phone number
+  personToUpdate.puhelin = updatedPerson.puhelin;
+
+  response.json(personToUpdate);
+});
+
   /* delete person by id */
   app.delete('/api/persons/:id', (request, response) => {
     const id = Number(request.params.id)
