@@ -16,13 +16,13 @@ app.use(express.json())
 let persons = [
   {
     id: 1,
-    name: "Arto Fellas",
+    name: "Roy Mitchell",
     puhelin: "040-1234567"
   },
   {
     id: 2,
     name: "Ada Lovelace",
-    puhelin: "03-903490"
+    puhelin: "03-9034900"
   },
   {
     id: 3,
@@ -31,8 +31,18 @@ let persons = [
   },
   {
     id: 4,
-    name: "Mikko Mallikas",
+    name: "Donald Duck",
     puhelin: "0500-6667770"
+  },
+  {
+    id: 5,
+    name: "Taylor Stapleton",
+    puhelin: "0400-9090200"
+  },
+  {
+    id: 6,
+    name: "Kreivi Dracula",
+    puhelin: "019-1309"
   }
 ]
 
