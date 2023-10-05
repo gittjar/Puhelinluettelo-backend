@@ -9,7 +9,6 @@ if (process.argv.length < 3) {
 const password = process.argv[2];
 
 const url = `mongodb+srv://fullstack:${password}@cluster0.gegyszb.mongodb.net/PhonebookApp?retryWrites=true&w=majority`;
-
 mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true });
 
 const phonebookSchema = new mongoose.Schema({

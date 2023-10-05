@@ -1,155 +1,155 @@
-const express = require('express')
-const app = express()
+require('dotenv').config()
+const express = require('express');
+const app = express();
 const morgan = require('morgan');
-const cors = require('cors')
+const cors = require('cors');
+const mongoose = require('mongoose');
+const Phonebook = require('./models/phonebook');
 
 app.use(cors())
-
-// Use the "tiny" format for logging
 app.use(morgan('tiny'));
-
+app.use(express.static('build'))
 app.use(express.json())
 
+// Connect to your MongoDB database using the provided URI in .env
+const url = process.env.MONGODB_URI;
 
+console.log('connecting to', url);
 
-
-let persons = [
-  {
-    id: 1,
-    name: "Roy Mitchell",
-    puhelin: "040-1234567"
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    puhelin: "03-9034900"
-  },
-  {
-    id: 3,
-    name: "Jack Sparrow",
-    puhelin: "044-1234567"
-  },
-  {
-    id: 4,
-    name: "Donald Duck",
-    puhelin: "0500-6667770"
-  },
-  {
-    id: 5,
-    name: "Taylor Stapleton",
-    puhelin: "0400-9090200"
-  },
-  {
-    id: 6,
-    name: "Kreivi Dracula",
-    puhelin: "019-1309"
-  }
-]
-
-app.get('/', (req, res) => {
-    res.send('<h1>Puhelinluettelo Backend</h1>')
+mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(result => {
+    console.log('connected to MongoDB')
   })
-  
-  app.get('/api/persons', (req, res) => {
-    res.json(persons)
-  })
+  .catch((error) => {
+    console.log('error connecting to MongoDB:', error.message)
+  });
 
-  /*persons by id*/
-  app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    if (person) {
-        response.json(person)
-      } else {
-        response.status(404).end()
-      }
-  })
-
-  // Update a person by ID
-app.put('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id);
-  const updatedPerson = request.body;
-
-  // Find the person to update by ID
-  const personToUpdate = persons.find((person) => person.id === id);
-
-  if (!personToUpdate) {
-    return response.status(404).json({ error: 'Person not found' });
-  }
-
-  // Update the phone number
-  personToUpdate.puhelin = updatedPerson.puhelin;
-
-  response.json(personToUpdate);
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+db.once('open', () => {
+  console.log('Connection to MongoDB is open...');
 });
 
-  /* delete person by id */
-  app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(person => person.id !== id)
-  
-    response.status(204).end()
-  })
+// GET persons
+app.get('/api/persons', (req, res) => {
+  Phonebook.find({})
+    .then((persons) => {
+      res.json(persons);
+    })
+    .catch((error) => {
+      console.error('Error fetching data:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    });
+});
 
+// GET persons by id
+app.get('/api/persons/:id', (req, res, next) => {
+  const id = req.params.id;
 
-    /* generates +1 id number above */
-    const generateId = () => {
-        const maxId = persons.length > 0
-          ? Math.max(...persons.map(n => n.id))
-          : 0
-        return maxId + 1
+  Phonebook.findById(id)
+    .then((person) => {
+      if (!person) {
+        return res.status(404).json({ error: 'Person not found' });
       }
+      res.json(person);
+    })
+    .catch(error => next(error))
+});
 
-  app.post('/api/persons', (request, response) => {
-    const body = request.body;
-  
-    if (!body.name) {
-      return response.status(400).json({
-        error: 'Name is missing',
-      });
-    }
-  
-    if (!body.puhelin) {
-      return response.status(400).json({
-        error: 'Phonenumber is missing',
-      });
-    }
-  
-    const nameExists = persons.some((person) => person.name === body.name);
-    if (nameExists) {
-      return response.status(400).json({
-        error: 'Name already exists in the list',
-      });
-    }
-  
-    const person = {
-      name: body.name,
-      puhelin: body.puhelin,
-      id: generateId(),
-    };
+// DELETE Persons
+app.delete('/api/persons/:id', (req, res) => {
+  const id = req.params.id;
 
-    // Log the POST data using Morgan
-    console.log('Received POST request data:', request.body);
-  
-    persons = persons.concat(person);
-    response.json(person);
+  Phonebook.findByIdAndRemove(id)
+    .then((deletedPerson) => {
+      if (!deletedPerson) {
+        return res.status(404).json({ error: 'Person not found' });
+      }
+      res.status(204).end();
+    })
+    .catch((error) => {
+      console.error('Error deleting data:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    });
+});
+
+// PUT
+app.put('/api/persons/:id', (req, res) => {
+  const id = req.params.id;
+  const updatedPerson = req.body;
+
+  Phonebook.findByIdAndUpdate(id, updatedPerson, { new: true })
+    .then((person) => {
+      if (!person) {
+        return res.status(404).json({ error: 'Person not found' });
+      }
+      res.json(person);
+    })
+    .catch((error) => {
+      console.error('Error updating data:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    });
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Error:', error.message);
+  if (error.name === 'CastError' && error.kind === 'ObjectId') {
+    return res.status(400).json({ error: 'Invalid ID format' });
+  }
+  next(error);
+});
+
+app.post('/api/persons', (req, res, next) => {
+  const body = req.body;
+
+  if (!body.name || !body.phonenumber) {
+    return res.status(400).json({
+      error: 'Name or phonenumber is missing',
+    });
+  }
+
+  const person = new Phonebook({
+    name: body.name,
+    phonenumber: body.phonenumber,
   });
-  
 
-  /*Information of count of persons and local time*/
-  app.get('/info', (req, res) => {
-    const personCount = persons.length;
-    const currentTime = new Date().toString();
-  
-    res.send(`
-      <p>Phonebook has info for ${personCount} people</p>
-      <p>${currentTime}</p>
-    `);
-  });
-  
+  person
+    .save()
+    .then((savedPerson) => {
+      console.log(`Added ${savedPerson.name} number ${savedPerson.phonenumber} to phonebook.`);
+      res.json(savedPerson);
+    })
+    .catch((error) => next(error));
+});
 
-  // const PORT = 3001
-  const PORT = process.env.PORT || 3001
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
-  })
+app.get('/info', (req, res) => {
+  Phonebook.countDocuments({})
+    .then((personCount) => {
+      const currentTime = new Date().toString();
+      res.send(`
+        <div style="background-color: navy; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+          <h2 style="color: fuchsia;">Phonebook has info for ${personCount} people</h2>
+          <span style="font-size: 1.4rem; color: green; background-color: black;">Today is: ${currentTime}</span>
+        </div>
+      `);
+    })
+    .catch((error) => next(error));
+});
+
+
+// Define a middleware to handle unknown endpoints
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Define a middleware to handle errors
+app.use((error, req, res, next) => {
+  console.error('Error:', error.message);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
